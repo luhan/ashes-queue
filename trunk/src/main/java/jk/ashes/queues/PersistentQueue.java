@@ -41,17 +41,25 @@ public class PersistentQueue implements Queue {
     private int readPosition = 0;
     private int writePosition = 0;
     private boolean backlogAvailable = false;
+    String fileName = "store.dat";
+
+    public PersistentQueue(String fileName) {
+        this.fileName = fileName;
+    }
+
+    public PersistentQueue() {        
+    }
 
     public void begin() {
         try {
-            final String fileName = "store.dat";
             file = new RandomAccessFile(fileName, "rw");
             channel = file.getChannel();
             mbb = channel.map(READ_WRITE, 0, length);
             readPosition = (mbb.getInt(0) == 0 ? 8 : mbb.getInt(0));
             writePosition = (mbb.getInt(4) == 0 ? 8 : mbb.getInt(4));
-            System.out.println("READ POSITION : " + readPosition);
+
             if (readPosition != 8) {
+                logger.info("There are backlogs, starting the readposition from : " + readPosition);
                 backlogAvailable = true;
             }
         } catch (Throwable e) {
@@ -65,10 +73,11 @@ public class PersistentQueue implements Queue {
      */
     public void finish() {
         mbb.clear();
-        mbb.putInt(0, 8);
-        mbb.putInt(4, 8);
         readPosition = 8;
         writePosition = 8;
+        mbb.putInt(0, readPosition);//resetting read position
+        mbb.putInt(4, writePosition);//resetting read position
+
     }
 
     /**

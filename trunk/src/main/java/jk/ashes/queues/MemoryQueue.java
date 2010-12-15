@@ -22,7 +22,8 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.List;
 
 /**
- * This is the primary memory queue where consumer take messages from. 
+ * This is the primary memory queue where consumer take messages from.
+ * 
  * $LastChangedDate$
  * $LastChangedBy$
  * $LastChangedRevision$

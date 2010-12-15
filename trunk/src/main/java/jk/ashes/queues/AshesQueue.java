@@ -27,31 +27,41 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 
 /**
+ *
+ * The Alias Queue which internally manages the states and doing the swapping between file and memory
+ *
  * $LastChangedDate$
  * $LastChangedBy$
  * $LastChangedRevision$
  */
-public class AliasQueue implements Queue {
-    private final static Logger logger = LoggerFactory.getLogger(AliasQueue.class);
+public class AshesQueue implements Queue {
+    private final static Logger logger = LoggerFactory.getLogger(AshesQueue.class);
+
     private QueueState currentQueue;
+
     private NormalState normalState;
     private OverflowState overflowState;
     private OffloaderState offloaderState;
-    private MemoryQueue inMemoryQueue;
-    private MemoryQueue inMemoryStatgingQueue;
-    private PersistentQueue persistentQueue;
 
-    public AliasQueue() {
-        inMemoryQueue = new MemoryQueue(1000);
-        inMemoryStatgingQueue = new MemoryQueue(400);
-        persistentQueue = new PersistentQueue();
+    private MemoryQueue inMemoryQueue;
+
+    public AshesQueue(int mainMemorySize, int stagingMemorySize, String fileName) {
+        inMemoryQueue = new MemoryQueue(mainMemorySize);
+        MemoryQueue inMemoryStatgingQueue = new MemoryQueue(stagingMemorySize);
+        PersistentQueue persistentQueue = new PersistentQueue(fileName);
+
         normalState = new NormalState(inMemoryQueue);
         overflowState = new OverflowState(inMemoryQueue, persistentQueue);
         offloaderState = new OffloaderState(inMemoryQueue, inMemoryStatgingQueue);
+
+        initialiseState(persistentQueue);
+    }
+
+    private void initialiseState(PersistentQueue persistentQueue) {
         if (persistentQueue.isBacklogAvailable()) {
-            moveFromNormalToOverflowState(null);
+            moveFromNormalToOverflowState(null); // the file contains messages already, clear them first
         } else {
-            currentQueue = normalState;
+            currentQueue = normalState;    // move to normal
         }
     }
 
@@ -78,27 +88,27 @@ public class AliasQueue implements Queue {
     }
 
     public boolean moveFromNormalToOverflowState(Object a) {
-        logger.debug("Moving to overflow state...");
+        logger.debug("Moving to overflow state from normal state ...");
         overflowState.start();
         currentQueue = overflowState;
         return null == a || currentQueue.produce(a, this);
     }
 
     public boolean moveFromOffLoaderToOverflowState(Object a, MemoryQueue stagingMemoryQueue) {
-        logger.debug("Moving to overflow state from Offloader state");
+        logger.debug("Moving to overflow state from Offloader state ...");
         overflowState.start();
         currentQueue = overflowState;
         return overflowState.produce(a, stagingMemoryQueue, this);
     }
 
     public void moveFromOverflowToOffLoaderState() {
-        logger.debug("Moving to offloader state from over from over flow state");
+        logger.debug("Moving to offloader state from over from over flow state ...");
         offloaderState.start();
         currentQueue = offloaderState;
     }
 
     public boolean moveToNormalState() {
-        logger.debug("Moving to normal state");
+        logger.debug("Moving to normal state...");
         currentQueue = normalState;
         return true;
     }
