@@ -16,7 +16,7 @@
 package jk.ashes.states;
 
 import jk.ashes.queues.MemoryQueue;
-import jk.ashes.queues.AliasQueue;
+import jk.ashes.queues.AshesQueue;
 import jk.ashes.QueueState;
 
 import java.util.concurrent.ExecutorService;
@@ -44,27 +44,27 @@ public class OffloaderState implements QueueState {
         executorService = Executors.newSingleThreadExecutor();
     }
 
-    public boolean produce(Object a, AliasQueue aliasQueue) {
+    public boolean produce(Object a, AshesQueue ashesQueue) {
         boolean b = stagingMemoryQueue.produce(a);
         if (!b) {
             logger.debug("Not enough space in staging memory, going back to persistent queue again");
-            b = aliasQueue.moveFromOffLoaderToOverflowState(a, stagingMemoryQueue);
+            b = ashesQueue.moveFromOffLoaderToOverflowState(a, stagingMemoryQueue);
         } else {
             if (inMemoryQueue.remainingCapacity() > stagingMemoryQueue.inMemoryQueue().size() && inMemoryQueue.isReady()) {
                 logger.debug("Time to move to Normal state, moving..");
-                b = moveToNormal(aliasQueue, b);
+                b = moveToNormal(ashesQueue, b);
             }
         }
         return b;
     }
 
-    private synchronized boolean moveToNormal(AliasQueue aliasQueue, boolean b) {
+    private synchronized boolean moveToNormal(AshesQueue ashesQueue, boolean b) {
         stop();
         Object object = null;
         while ((object = stagingMemoryQueue.consume()) != null) {
             inMemoryQueue.produce(object);
         }
-        b = aliasQueue.moveToNormalState();
+        b = ashesQueue.moveToNormalState();
         return b;
     }
 

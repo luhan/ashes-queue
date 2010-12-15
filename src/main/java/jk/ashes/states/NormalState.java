@@ -16,7 +16,7 @@
 package jk.ashes.states;
 
 import jk.ashes.queues.MemoryQueue;
-import jk.ashes.queues.AliasQueue;
+import jk.ashes.queues.AshesQueue;
 import jk.ashes.QueueState;
 
 /**
@@ -33,10 +33,10 @@ public class NormalState implements QueueState{
         this.inMemoryQueue = inMemoryQueue;
     }
 
-    public boolean produce(Object a, AliasQueue aliasQueue) {
+    public boolean produce(Object a, AshesQueue ashesQueue) {
         boolean b = inMemoryQueue.produce(a);
         if (!b) {
-            b = aliasQueue.moveFromNormalToOverflowState(a);
+            b = ashesQueue.moveFromNormalToOverflowState(a);
         }
         return b;
     }

@@ -15,7 +15,7 @@
 */
 package jk.ashes;
 
-import jk.ashes.queues.AliasQueue;
+import jk.ashes.queues.AshesQueue;
 
 /**
  * $LastChangedDate$
@@ -23,7 +23,7 @@ import jk.ashes.queues.AliasQueue;
  * $LastChangedRevision$
  */
 public interface QueueState {
-    boolean produce(Object a, AliasQueue aliasQueue);
+    boolean produce(Object a, AshesQueue ashesQueue);
 
     Object consume();
 }

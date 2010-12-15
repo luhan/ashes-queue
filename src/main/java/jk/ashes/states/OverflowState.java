@@ -17,7 +17,7 @@ package jk.ashes.states;
 
 import jk.ashes.queues.MemoryQueue;
 import jk.ashes.queues.PersistentQueue;
-import jk.ashes.queues.AliasQueue;
+import jk.ashes.queues.AshesQueue;
 import jk.ashes.Queue;
 import jk.ashes.QueueState;
 
@@ -52,13 +52,13 @@ public class OverflowState implements QueueState {
         persistentQueue.begin();
     }
 
-    public synchronized boolean produce(Object a, AliasQueue aliasQueue) {
+    public synchronized boolean produce(Object a, AshesQueue ashesQueue) {
         final boolean b = persistentQueue.produce(a);
         if (!b) {
             logger.error("Persistent queue is full, very funny, please check " + a);
         } else {
             if (inMemoryQueue.remainingCapacity() > inMemoryQueue.size() / 2) { //TODO analyse this later
-                aliasQueue.moveFromOverflowToOffLoaderState();
+                ashesQueue.moveFromOverflowToOffLoaderState();
                 stop();
             }
         }
@@ -68,11 +68,11 @@ public class OverflowState implements QueueState {
     /**
      * This is when moving from offloader to overloader
      */
-    public synchronized boolean produce(Object a, MemoryQueue stagingMemoryQueue, AliasQueue aliasQueue) {
+    public synchronized boolean produce(Object a, MemoryQueue stagingMemoryQueue, AshesQueue ashesQueue) {
         List list = new ArrayList();
         stagingMemoryQueue.inMemoryQueue().drainTo(list);
         persistentQueue.produce(list);
-        return produce(a, aliasQueue);
+        return produce(a, ashesQueue);
     }
 
     public Object consume() {

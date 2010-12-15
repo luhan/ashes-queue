@@ -25,12 +25,6 @@
             <artifactId>slf4j-log4j12</artifactId>
             <version>1.5.11</version>
         </dependency>
-        <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
-            <version>5.14</version>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
     <build>
@@ -51,7 +45,109 @@
                     <target>1.7</target>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>appassembler-maven-plugin</artifactId>
+                <version>1.0</version>
+                <configuration>
+                    <repoPath>lib</repoPath>
+                    <repositoryLayout>flat</repositoryLayout>
+                    <assembleDirectory>${project.build.directory}/ashes-queue</assembleDirectory>
+                    <defaultJvmSettings>
+                        <initialMemorySize>256M</initialMemorySize>
+                        <maxMemorySize>1024M</maxMemorySize>
+                        <extraArguments>
+                            <extraArgument>-server</extraArgument>
+                        </extraArguments>
+                    </defaultJvmSettings>
+                    <daemons>
+                        <daemon>
+                            <id>ashes</id>
+                            <mainClass>jk.ashes.example.ProducerConsumerSample</mainClass>
+                            <commandLineArguments>
+                            </commandLineArguments>
+                            <platforms>
+                                <platform>jsw</platform>
+                            </platforms>
+                            <generatorConfigurations>
+                                <generatorConfiguration>
+                                    <generator>jsw</generator>
+                                    <configuration>
+                                        <property>
+                                            <name>configuration.directory.in.classpath.first</name>
+                                            <value>conf</value>
+                                        </property>
+                                        <property>
+                                            <name>set.default.REPO_DIR</name>
+                                            <value>lib</value>
+                                        </property>
+                                        <property>
+                                            <name>wrapper.logfile</name>
+                                            <value>logs/wrapper.log</value>
+                                        </property>
+                                    </configuration>
+                                    <includes>
+                                        <include>solaris-sparc-32</include>
+                                        <include>solaris-sparc-64</include>
+                                        <include>solaris-x86-32</include>
+                                        <include>solaris-x86-64</include>
+                                        <include>linux-x86-32</include>
+                                        <include>windows-x86-32</include>
+                                        <include>linux-x86-64</include>
+                                        <include>windows-x86-64</include>
+                                    </includes>
+                                </generatorConfiguration>
+                            </generatorConfigurations>
+                        </daemon>
+                    </daemons>
+                </configuration>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>generate-daemons</goal>
+                            <goal>create-repository</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>1.1</version>
+                <executions>
+                    <execution>
+                        <id>config</id>
+                        <phase>package</phase>
+                        <configuration>
+                            <tasks>
+                                <mkdir dir="${project.build.directory}/ashes-queue/logs"/>
+                                <mkdir dir="${project.build.directory}/ashes-queue/bin"/>
+                                <mkdir dir="${project.build.directory}/ashes-queue/conf"/>
+                                <copy todir="${project.build.directory}/ashes-queue/conf">
+                                    <fileset dir="${project.build.directory}/generated-resources/appassembler/jsw/ashes/conf"/>
+                                    <fileset dir="src/main/resources">
+                                        <include name="log4j.xml"/>
+                                        <include name="pc.properties"/>
+                                    </fileset>
+                                </copy>
+                                <copy todir="${project.build.directory}/ashes-queue/bin">
+                                    <fileset dir="${project.build.directory}/generated-resources/appassembler/jsw/ashes/bin"/>
+                                </copy>
+                                <copy todir="${project.build.directory}/ashes-queue/lib">
+                                    <fileset dir="${project.build.directory}/generated-resources/appassembler/jsw/ashes/lib"/>
+                                </copy>
+                                <chmod dir="${project.build.directory}/ashes-queue" perm="777" includes="**/**"/>
+                            </tasks>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                </executions>
+
+            </plugin>
         </plugins>
+
     </build>
 
 </project>
