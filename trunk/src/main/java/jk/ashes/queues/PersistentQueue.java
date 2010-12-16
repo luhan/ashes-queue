@@ -25,6 +25,7 @@ import java.io.*;
 import java.util.List;
 
 import jk.ashes.Queue;
+import jk.ashes.PersistentMessageListener;
 
 /**
  * $LastChangedDate$
@@ -42,12 +43,19 @@ public class PersistentQueue implements Queue {
     private int writePosition = 0;
     private boolean backlogAvailable = false;
     String fileName = "store.dat";
+    private PersistentMessageListener persistentMessageListener;
 
-    public PersistentQueue(String fileName) {
+    public PersistentQueue(String fileName, PersistentMessageListener persistentMessageListener) {
         this.fileName = fileName;
+        this.persistentMessageListener = persistentMessageListener;
     }
 
-    public PersistentQueue() {        
+    public PersistentQueue(String fileName) {
+        this(fileName, null);
+    }
+
+    public PersistentQueue(PersistentMessageListener persistentMessageListener) {
+        this("store.dat", persistentMessageListener);
     }
 
     public void begin() {
@@ -93,10 +101,16 @@ public class PersistentQueue implements Queue {
             mbb.put(oBytes);
             writePosition = writePosition + length;
             mbb.putInt(4, writePosition);
+            if (null != persistentMessageListener) {
+                persistentMessageListener.onMessagePersistent(o, true);
+            }
             return true;
         } catch (Throwable e) {
             logger.error("Issue in dumping the object into persistent " + e);
             logger.error("The object missed is :" + o);
+            if (null != persistentMessageListener) {
+                persistentMessageListener.onMessagePersistent(o, true);
+            }
             return false;
         }
     }
@@ -152,10 +166,12 @@ public class PersistentQueue implements Queue {
         } finally {
             try {
                 oos.close();
-            } catch (Throwable e) {}
+            } catch (Throwable e) {
+            }
             try {
                 bos.close();
-            } catch (Throwable e) {}
+            } catch (Throwable e) {
+            }
         }
     }
 
@@ -169,15 +185,17 @@ public class PersistentQueue implements Queue {
         } finally {
             try {
                 ois.close();
-            } catch (Throwable e) {}
+            } catch (Throwable e) {
+            }
             try {
                 bis.close();
-            } catch (Throwable e) {}
+            } catch (Throwable e) {
+            }
         }
     }
 
     public int remainingCapacity() {
-       return Integer.MAX_VALUE;  //fake still
+        return Integer.MAX_VALUE;  //fake still
     }
 
     public int size() {
