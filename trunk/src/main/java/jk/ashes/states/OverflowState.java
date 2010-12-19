@@ -16,8 +16,8 @@
 package jk.ashes.states;
 
 import jk.ashes.queues.MemoryQueue;
-import jk.ashes.queues.PersistentQueue;
 import jk.ashes.queues.AshesQueue;
+import jk.ashes.queues.PersistentQueue;
 import jk.ashes.Queue;
 import jk.ashes.QueueState;
 
@@ -49,7 +49,7 @@ public class OverflowState implements QueueState {
         this.persistentQueue = persistentQueue;
         reloader = new Reloader(inMemoryQueue, persistentQueue);
         executorService = Executors.newSingleThreadExecutor();
-        persistentQueue.begin();
+        persistentQueue.init();
     }
 
     public synchronized boolean produce(Object a, AshesQueue ashesQueue) {
@@ -132,7 +132,7 @@ public class OverflowState implements QueueState {
                     inMemoryQueue.setReady(true);
                     logger.debug("Overflow messages are cleared, exiting the reloader ");
                     if (persistenQueue instanceof PersistentQueue) {
-                        ((PersistentQueue) persistenQueue).finish();
+                        ((PersistentQueue) persistenQueue).cleanUp();
                     }
                     halt = false;
                     return;

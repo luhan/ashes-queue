@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 
 import java.nio.MappedByteBuffer;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import static java.nio.channels.FileChannel.MapMode.READ_WRITE;
 import java.io.*;
@@ -28,22 +29,46 @@ import jk.ashes.Queue;
 import jk.ashes.PersistentMessageListener;
 
 /**
+ * This is the Persistent Queue where the objects are produced and consumed in a FIFO basis
+ *
+ * two mapped byte buffers will be created both for reading and writing
+ *
+ * The data packet format will be [1bye][4bytes][data bytes] where firs header is to mention whether
+ * the packet is already consumed or not. second header is 4 bytes size, specifying the length of the packet,
+ * and the rest is the actual data
+ *
+ * The maximum Data size is less than (WRITE_PAGE_SIZE & READ_PAGE_SIZE - headerLength)
+ *
+ * The backlog is also taken care. Too bored to write the document, please check the code or drop me an email ;)
+ *
+ *
  * $LastChangedDate$
  * $LastChangedBy$
  * $LastChangedRevision$
  */
 public class PersistentQueue implements Queue {
     private final static Logger logger = LoggerFactory.getLogger(PersistentQueue.class);
-    private final static int length = 0x8FFFFFF; // 128 Mb
-    private MappedByteBuffer mbb;
-    private FileChannel channel;
-    private RandomAccessFile file;
-    private static int PAGE_SIZE = 1024 * 1024; // 1 megabyte page size //TODO
-    private int readPosition = 0;
-    private int writePosition = 0;
-    private boolean backlogAvailable = false;
-    String fileName = "store.dat";
-    private PersistentMessageListener persistentMessageListener;
+
+    protected static int WRITE_PAGE_SIZE = 1024 * 1024; // 1 MB Page Size
+    protected static int READ_PAGE_SIZE = 1024 * 1024; // 1 MB Page Size
+
+    private String fileName = "store.dat"; // the default name of the persistent file
+    private RandomAccessFile file;//random accessfile
+    private FileChannel channel; //channel returned from random accessfile
+    private MappedByteBuffer readMbb; // buffer used to read
+    private MappedByteBuffer writeMbb; // buffer used to wirte
+
+    private boolean backlogAvailable = false; // If the persistent file has backlog already
+
+    private PersistentMessageListener persistentMessageListener; //Listener to be used to notify when a message is persisted
+
+    final private ByteBuffer header = ByteBuffer.allocateDirect(5);   //1 byte for the status of the message, 4 bytes length of the payload
+    final private ByteBuffer data = ByteBuffer.allocateDirect(1024); //1KB Message Packet
+    final private int packetCapacity = header.capacity() + data.capacity();
+    final private int headerLength = 5;
+
+    private int fileReadPosition = 0;  //absolute file read position
+    private int fileWritePosition = 0; //absolute file write position
 
     public PersistentQueue(String fileName, PersistentMessageListener persistentMessageListener) {
         this.fileName = fileName;
@@ -58,34 +83,78 @@ public class PersistentQueue implements Queue {
         this("store.dat", persistentMessageListener);
     }
 
-    public void begin() {
+    public void init() {
         try {
             file = new RandomAccessFile(fileName, "rw");
             channel = file.getChannel();
-            mbb = channel.map(READ_WRITE, 0, length);
-            readPosition = (mbb.getInt(0) == 0 ? 8 : mbb.getInt(0));
-            writePosition = (mbb.getInt(4) == 0 ? 8 : mbb.getInt(4));
-
-            if (readPosition != 8) {
-                logger.info("There are backlogs, starting the readposition from : " + readPosition);
-                backlogAvailable = true;
-            }
+            initialiseReadBuffer();
+            initialiseWriteBuffer();
         } catch (Throwable e) {
             logger.error("FATAL : Couldn't initialise the persistent queue, overload protection won't work ", e);
         }
+    }
+
+    private void initialiseReadBuffer() throws IOException {
+        readMbb = channel.map(READ_WRITE, fileReadPosition, READ_PAGE_SIZE);  //create the read buffer with fileReadPosition 0 initially
+        int position = readMbb.position();
+        byte active = readMbb.get(); //first byte to see whether the message is already read or not
+        int length = readMbb.getInt();//next four bytes to see the data length
+
+        while (active == 0 && length > 0) {// message is non active means, its read,so skipping it
+            if (position + packetCapacity > readMbb.capacity()) { // Bytebuffer is out of capacity, hence changing the buffer
+                fileReadPosition = fileReadPosition + position + headerLength + length;
+                readMbb = channel.map(READ_WRITE, fileReadPosition, READ_PAGE_SIZE);
+            } else {
+                readMbb.position(position + headerLength + length); // skipping the read bytes
+            }
+            position = readMbb.position();
+            active = readMbb.get();
+            length = readMbb.getInt();
+        }
+        if (active == 1) {
+            backlogAvailable = true; // the file has unconsumed message(s)
+        }
+        readMbb.position(position);
+    }
+
+
+    private void initialiseWriteBuffer() throws IOException {
+        int position;
+        byte active;
+        int length;
+        writeMbb = channel.map(READ_WRITE, fileReadPosition, WRITE_PAGE_SIZE); //start from the readposition, since we dont overwrite!
+        position = writeMbb.position();
+        active = writeMbb.get();
+        length = writeMbb.getInt();
+        while (length > 0) { // message is there, so skip it, keep doing until u get the end
+            if (position + packetCapacity > readMbb.capacity()) { // over run capacity, hence move the paging
+                fileWritePosition = fileWritePosition + position + headerLength + length;
+                writeMbb = channel.map(READ_WRITE, fileWritePosition, WRITE_PAGE_SIZE);
+            } else {
+                writeMbb.position(position + headerLength + length);
+            }
+            position = writeMbb.position();
+            active = writeMbb.get();
+            length = writeMbb.getInt();
+        }
+        writeMbb.position(position);
     }
 
 
     /**
      * Changing the read write positiong back to earlier
      */
-    public void finish() {
-        mbb.clear();
-        readPosition = 8;
-        writePosition = 8;
-        mbb.putInt(0, readPosition);//resetting read position
-        mbb.putInt(4, writePosition);//resetting read position
-
+    public synchronized void cleanUp() {
+        try {
+            channel.truncate(0);
+            readMbb = channel.map(READ_WRITE, 0, READ_PAGE_SIZE);
+            writeMbb = channel.map(READ_WRITE, 0, WRITE_PAGE_SIZE);
+            backlogAvailable = false;
+        } catch (IOException e) {
+            logger.error("Error while trying to truncate the file ", e);
+        }
+        fileReadPosition = readMbb.position();
+        fileWritePosition = writeMbb.position();
     }
 
     /**
@@ -95,13 +164,27 @@ public class PersistentQueue implements Queue {
         try {
             byte[] oBytes = getBytes(o);
             int length = oBytes.length;
-            mbb.putInt(writePosition, length);
-            writePosition = writePosition + 4;
-            mbb.position(writePosition);
-            mbb.put(oBytes);
-            writePosition = writePosition + length;
-            mbb.putInt(4, writePosition);
-            if (null != persistentMessageListener) {
+            //prepare the header
+            header.clear();
+            header.put((byte) 1);
+            header.putInt(length);
+            header.flip();
+
+            //prepare the data
+            data.clear();
+            data.put(oBytes);
+            data.flip();
+
+            int currentPosition = writeMbb.position();
+            if (writeMbb.remaining() < packetCapacity) { //check weather current buffer is enuf, otherwise we need to chance the buffer
+                writeMbb.force();
+                fileWritePosition = fileWritePosition + currentPosition;
+                writeMbb = channel.map(READ_WRITE, fileWritePosition, WRITE_PAGE_SIZE);
+            }
+
+            writeMbb.put(header); //write header
+            writeMbb.put(data); //write data
+            if (null != persistentMessageListener) { //notify listener
                 persistentMessageListener.onMessagePersistent(o, true);
             }
             return true;
@@ -127,28 +210,34 @@ public class PersistentQueue implements Queue {
         return true;
     }
 
-    public synchronized Object consume() {
-        final int length = mbb.getInt(readPosition);
-        if (length == 0) {
-            return null; //the queue is empty
-        }
-        mbb.putInt(readPosition, 0); //clear it after reading
-        readPosition = readPosition + 4; // move to data from header of four bytes
 
-        byte[] bytes = new byte[length];
-        for (int i = 0; i < length; i++) {
-            bytes[i] = mbb.get(readPosition);
-            mbb.put(readPosition, (byte) 0);// clear after reading it
-            readPosition++;
-        }
-        mbb.putInt(0, readPosition); // for next object
+    public synchronized Object consume() {
         try {
+            int currentPosition = readMbb.position();
+            if (readMbb.remaining() < packetCapacity) {
+                fileReadPosition = fileReadPosition + currentPosition;
+                readMbb = channel.map(READ_WRITE, fileReadPosition, READ_PAGE_SIZE);
+                currentPosition = readMbb.position();
+            }
+            final byte active = readMbb.get();
+            final int length = readMbb.getInt();
+            if (active == 0 && length > 0) {
+                readMbb.position(currentPosition + headerLength + length);
+                return consume();
+            }
+
+            if (length <= 0) {
+                readMbb.position(currentPosition);
+                return null; //the queue is empty
+            }
+            byte[] bytes = new byte[length];
+            readMbb.get(bytes);
+
+            readMbb.put(currentPosition, (byte) 0); //making it not active (deleted)
+
             return toObject(bytes);
         } catch (Throwable e) {
             logger.error("Issue in reading the persistent queue : ", e);
-            logger.error("Length of the errored packet  : " + length);
-            logger.error("Current Read Position         : " + readPosition);
-            logger.error("Object which has error        : " + bytes.toString());
             return null;
         }
     }
@@ -161,17 +250,14 @@ public class PersistentQueue implements Queue {
             oos = new ObjectOutputStream(bos);
             oos.writeObject(o);
             oos.flush();
-
             return bos.toByteArray();
         } finally {
             try {
                 oos.close();
-            } catch (Throwable e) {
-            }
+            } catch (Throwable e) {/*Do nothing*/}
             try {
                 bos.close();
-            } catch (Throwable e) {
-            }
+            } catch (Throwable e) {/*Do nothing*/}
         }
     }
 
@@ -185,12 +271,10 @@ public class PersistentQueue implements Queue {
         } finally {
             try {
                 ois.close();
-            } catch (Throwable e) {
-            }
+            } catch (Throwable e) {/*Do Nothing*/}
             try {
                 bis.close();
-            } catch (Throwable e) {
-            }
+            } catch (Throwable e) {/*Do Nothing*/}
         }
     }
 
@@ -202,13 +286,35 @@ public class PersistentQueue implements Queue {
         return Integer.MAX_VALUE; //fake still
     }
 
-    public boolean isEmpty() {
-        final int b = mbb.getInt(readPosition);
-        backlogAvailable = false;
-        return b == 0;
+    public synchronized boolean isEmpty() {
+        int pos = readMbb.position();
+        final byte b;
+        final int length;
+        try {
+            b = readMbb.get(pos);
+            length = readMbb.getInt(pos + 1);
+        } catch (Throwable e) {
+            return true;
+        }
+        if (b == 0 && length == 0) {
+            backlogAvailable = false;
+            return true;
+        } else {
+            return false;
+        }
+
     }
 
     public boolean isBacklogAvailable() {
         return backlogAvailable;
+    }
+
+    public void close() {
+        writeMbb.force();
+        try {
+            file.close();
+        } catch (Throwable e) {
+            //do nothing
+        }
     }
 }

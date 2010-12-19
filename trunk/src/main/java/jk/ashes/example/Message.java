@@ -23,23 +23,27 @@ import java.io.Serializable;
  * $LastChangedRevision$
  */
 public class Message implements Serializable{
-    private int ck = 1;
+    private int index = 1;
+    private String value = "My name is JK and I am a crap living in Singapore !@#$$%^^&&";
 
     public Message(int i) {
-        ck = i;
+        index = i;
     }
 
-    public int ck() {
-        return ck;
+    public int index() {
+        return index;
     }
 
-    public void ck(int ck) {
-        this.ck = ck;
+    public void index(int index) {
+        this.index = index;
+    }
+
+    public String value() {
+        return value;
     }
 
     public String toString() {
-        return "{ck='" + ck + '}';
+        return "{index='" + index + '}';
     }
-
 }
 
