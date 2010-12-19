@@ -18,6 +18,7 @@ package jk.ashes.example;
 import jk.ashes.queues.AshesQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.Assert;
 
 import java.util.Properties;
 import java.io.InputStream;
@@ -83,13 +84,29 @@ public class ProducerConsumerSample {
                     final Message o = new Message(i);
                     try {
                         Thread.sleep(productionDelay);
+                    } catch (InterruptedException e) {/*do nothing*/}
+                    logger.info("Producing Message(" + i + ") : ************ " + o.index());
+                    q.produce(o);
+                }
+
+                try {
+                    Thread.sleep(10000);
+                } catch (InterruptedException e) {
+                    //do nothing
+                }
+
+                for (int i = noOfMessages + 1; i <= 2 * noOfMessages; i++) {
+                    final Message o = new Message(i);
+                    try {
+                        Thread.sleep(productionDelay);
                         //    Thread.sleep((int) (Math.random() * 1));
 
                     } catch (InterruptedException e) {
                     }
-                    logger.info("Producing Message(" + i + ") : ************ " + o.ck());
+                    logger.info("Producing Message(" + i + ") : ************ " + o.index());
                     q.produce(o);
                 }
+
             }
         };
     }
