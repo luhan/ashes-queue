@@ -1,2 +1,5 @@
 1) Add Testcases for other Queues
 2) Removing synchronised method by perhaps using FileLock
+3) Adding shutdown hook to persist all the current message queue
+4) JMX control over persisting all the messages and then recall it
+5) varying queue size based on the memory heap available
