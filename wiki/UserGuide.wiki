@@ -1,5 +1,5 @@
 #labels Phase-Deploy
-#A Simple user guide on how to use the ashes-queue
+A Simple user guide on how to use the ashes-queue
 
 = Prerequisites =
 
