@@ -6,7 +6,7 @@
     <artifactId>ashes</artifactId>
     <version>1.0</version>
     <packaging>jar</packaging>
-
+    <description>FIFO Queue implementation with overflow persistent support</description>
     <name>jk.ashes</name>
     <url>http://maven.apache.org</url>
 
