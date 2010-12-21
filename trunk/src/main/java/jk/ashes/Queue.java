@@ -31,7 +31,7 @@ public interface Queue {
 
     int remainingCapacity();
 
-    int size();
+    int capacity();
 
     boolean isEmpty();
 }

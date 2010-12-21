@@ -57,7 +57,7 @@ public class OverflowState implements QueueState {
         if (!b) {
             logger.error("Persistent queue is full, very funny, please check " + a);
         } else {
-            if (inMemoryQueue.remainingCapacity() > inMemoryQueue.size() / 2) { //TODO analyse this later
+            if (inMemoryQueue.remainingCapacity() > inMemoryQueue.capacity() / 2) { //TODO analyse this later
                 ashesQueue.moveFromOverflowToOffLoaderState();
                 stop();
             }
