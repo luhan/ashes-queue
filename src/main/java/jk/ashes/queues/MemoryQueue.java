@@ -16,14 +16,15 @@
 package jk.ashes.queues;
 
 import jk.ashes.Queue;
+import jk.ashes.util.MemoryMonitoringService;
 
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.List;
 
 /**
  * This is the primary memory queue where consumer take messages from.
- * 
+ * <p/>
  * $LastChangedDate$
  * $LastChangedBy$
  * $LastChangedRevision$
@@ -31,15 +32,18 @@ import java.util.List;
 public class MemoryQueue implements Queue {
     private BlockingQueue inMemoryQueue;
     private boolean ready = true;
-    private int size;
+    private int capacity;
 
-    public MemoryQueue(int size) {
-        this.size = size;
-        this.inMemoryQueue = new ArrayBlockingQueue(size, true); // FIFO queue
+    public MemoryQueue(int capacity) {
+        this.capacity = capacity;
+        this.inMemoryQueue = new LinkedBlockingQueue(); // FIFO queue
     }
 
-    public boolean produce(Object a) {
-        return inMemoryQueue.offer(a); // return false if full
+    public synchronized boolean produce(Object a) {
+        if (inMemoryQueue.size() < capacity) {
+            return inMemoryQueue.offer(a); // return false if full
+        }
+        return false;
     }
 
     /*
@@ -59,11 +63,15 @@ public class MemoryQueue implements Queue {
     }
 
     public int remainingCapacity() {
-        return inMemoryQueue.remainingCapacity();
+        return capacity - inMemoryQueue.size();
     }
 
-    public int size() {
-        return size;
+    public int capacity() {
+        return capacity;
+    }
+
+    public int resize(int capacity) {
+        return this.capacity = capacity;
     }
 
     public BlockingQueue inMemoryQueue() {
@@ -71,7 +79,7 @@ public class MemoryQueue implements Queue {
     }
 
     public boolean isEmpty() {
-        return remainingCapacity() == size();
+        return remainingCapacity() == capacity();
     }
 
     public boolean isReady() {

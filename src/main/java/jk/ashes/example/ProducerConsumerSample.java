@@ -16,11 +16,13 @@
 package jk.ashes.example;
 
 import jk.ashes.queues.AshesQueue;
+import jk.ashes.util.Range;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testng.Assert;
 
 import java.util.Properties;
+import java.util.HashMap;
+import java.util.Map;
 import java.io.InputStream;
 import java.io.IOException;
 
@@ -48,6 +50,15 @@ public class ProducerConsumerSample {
 
         //create the FIFO AshesQueue
         final AshesQueue q = new AshesQueue(memoryQueueSize, statgingMemorySize, fileName);
+
+        //adding memory monitoring based queue resizing
+        Map memoryUtilMap = new HashMap<Range, Integer>();
+        memoryUtilMap.put(new Range(0, 100), 1000);
+        memoryUtilMap.put(new Range(201, 300), 2000);
+        memoryUtilMap.put(new Range(101, 200), 3000);
+        memoryUtilMap.put(new Range(301, 400), 4000);
+        memoryUtilMap.put(new Range(401, Long.MAX_VALUE), 5000);
+        q.addMemoryMonitoring(memoryUtilMap);
 
         Runnable producer = createProducer(noOfMessages, productionDelay, q);
         Runnable consumer = createConsumer(consumptionDelay, q);

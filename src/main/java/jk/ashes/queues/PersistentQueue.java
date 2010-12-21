@@ -282,7 +282,7 @@ public class PersistentQueue implements Queue {
         return Integer.MAX_VALUE;  //fake still
     }
 
-    public int size() {
+    public int capacity() {
         return Integer.MAX_VALUE; //fake still
     }
 

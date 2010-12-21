@@ -9,7 +9,25 @@
     <description>FIFO Queue implementation with overflow persistent support</description>
     <name>jk.ashes</name>
     <url>http://maven.apache.org</url>
-
+    <licenses>
+        <license>
+            <name>The Apache Software License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <developers>
+        <developer>
+            <id>jk</id>
+            <name>jeyakumaran</name>
+            <email>jkumaranc@gmail.com</email>
+        </developer>
+    </developers>
+    <scm>
+        <url>http://ashes-queue.googlecode.com/svn/trunk/</url>
+        <connection>http://ashes-queue.googlecode.com/svn/trunk/</connection>
+    </scm>
+    
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
@@ -129,17 +147,20 @@
                                 <mkdir dir="${project.build.directory}/ashes-queue/bin"/>
                                 <mkdir dir="${project.build.directory}/ashes-queue/conf"/>
                                 <copy todir="${project.build.directory}/ashes-queue/conf">
-                                    <fileset dir="${project.build.directory}/generated-resources/appassembler/jsw/ashes/conf"/>
+                                    <fileset
+                                            dir="${project.build.directory}/generated-resources/appassembler/jsw/ashes/conf"/>
                                     <fileset dir="src/main/resources">
                                         <include name="log4j.xml"/>
                                         <include name="pc.properties"/>
                                     </fileset>
                                 </copy>
                                 <copy todir="${project.build.directory}/ashes-queue/bin">
-                                    <fileset dir="${project.build.directory}/generated-resources/appassembler/jsw/ashes/bin"/>
+                                    <fileset
+                                            dir="${project.build.directory}/generated-resources/appassembler/jsw/ashes/bin"/>
                                 </copy>
                                 <copy todir="${project.build.directory}/ashes-queue/lib">
-                                    <fileset dir="${project.build.directory}/generated-resources/appassembler/jsw/ashes/lib"/>
+                                    <fileset
+                                            dir="${project.build.directory}/generated-resources/appassembler/jsw/ashes/lib"/>
                                 </copy>
                                 <chmod dir="${project.build.directory}/ashes-queue" perm="777" includes="**/**"/>
                             </tasks>
@@ -149,8 +170,21 @@
                         </goals>
                     </execution>
                 </executions>
-
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>sign-artifacts</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>sign</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
         </plugins>
 
     </build>

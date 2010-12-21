@@ -40,3 +40,6 @@ How to test the system
 3) go to target/ashes-queue/bin and run ./ashes console
 4) You can see the messages persistent file inside target/ashes-queue directory
 
+
+https://oss.sonatype.org/content/repositories/central_bundles-044
+

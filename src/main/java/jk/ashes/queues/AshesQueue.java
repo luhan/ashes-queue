@@ -20,16 +20,19 @@ import jk.ashes.states.OverflowState;
 import jk.ashes.states.OffloaderState;
 import jk.ashes.QueueState;
 import jk.ashes.Queue;
+import jk.ashes.PersistentMessageListener;
+import jk.ashes.util.MemoryMonitoringService;
+import jk.ashes.util.Range;
 
 import java.util.List;
+import java.util.Map;
 
 import org.slf4j.LoggerFactory;
 import org.slf4j.Logger;
 
 /**
- *
  * The Alias Queue which internally manages the states and doing the swapping between file and memory
- *
+ * <p/>
  * $LastChangedDate$
  * $LastChangedBy$
  * $LastChangedRevision$
@@ -45,16 +48,33 @@ public class AshesQueue implements Queue {
 
     private MemoryQueue inMemoryQueue;
 
-    public AshesQueue(int mainMemorySize, int stagingMemorySize, String fileName) {
+    public AshesQueue(int mainMemorySize, int stagingMemorySize, String fileName, PersistentMessageListener listener) {
         inMemoryQueue = new MemoryQueue(mainMemorySize);
         MemoryQueue inMemoryStatgingQueue = new MemoryQueue(stagingMemorySize);
-        PersistentQueue persistentQueue = new PersistentQueue(fileName);
+        PersistentQueue persistentQueue = new PersistentQueue(fileName, listener);
 
         normalState = new NormalState(inMemoryQueue);
         overflowState = new OverflowState(inMemoryQueue, persistentQueue);
         offloaderState = new OffloaderState(inMemoryQueue, inMemoryStatgingQueue);
 
         initialiseState(persistentQueue);
+    }
+
+    public AshesQueue(int mainMemorySize, int stagingMemorySize, String fileName) {
+        this(mainMemorySize, stagingMemorySize, fileName, null);
+    }    
+
+    public void addMemoryMonitoring(Map<Range, Integer> memoryUtilMap) {
+        final MemoryMonitoringService service = new MemoryMonitoringService(memoryUtilMap);
+        service.init(inMemoryQueue);
+        service.start();
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            public void run() {
+                if (service != null) {
+                    service.stop();
+                }
+            }
+        });
     }
 
     private void initialiseState(PersistentQueue persistentQueue) {
@@ -84,7 +104,6 @@ public class AshesQueue implements Queue {
             }
         }
         return success;
-
     }
 
     public boolean moveFromNormalToOverflowState(Object a) {
@@ -117,12 +136,11 @@ public class AshesQueue implements Queue {
         return inMemoryQueue.remainingCapacity();
     }
 
-    public int size() {
-        return inMemoryQueue.size();
+    public int capacity() {
+        return inMemoryQueue.capacity();
     }
 
     public boolean isEmpty() {
-        return remainingCapacity() == size();
+        return remainingCapacity() == capacity();
     }
-
 }
