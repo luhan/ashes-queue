@@ -19,6 +19,7 @@ import jk.ashes.queues.MemoryQueue;
 import jk.ashes.queues.AshesQueue;
 import jk.ashes.QueueState;
 
+import java.io.Serializable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -30,25 +31,28 @@ import org.slf4j.LoggerFactory;
  * $LastChangedBy$
  * $LastChangedRevision$
  */
-public class OffloaderState implements QueueState {
-    private final static Logger logger = LoggerFactory.getLogger(Offloader.class);
-    private MemoryQueue inMemoryQueue;
-    private MemoryQueue stagingMemoryQueue;
+public class OffloaderState<T extends Serializable> implements QueueState<T> {
+
+    private final static Logger logger = LoggerFactory.getLogger(OffloaderState.class);
+
+    private MemoryQueue<T> inMemoryQueue;
+    private MemoryQueue<T> stagingMemoryQueue;
     private Offloader offloader;
+
     private ExecutorService executorService;
 
-    public OffloaderState(MemoryQueue inMemoryQueue, MemoryQueue stagingMemoryQueue) {
+    public OffloaderState(MemoryQueue<T> inMemoryQueue, MemoryQueue<T> stagingMemoryQueue) {
         this.inMemoryQueue = inMemoryQueue;
         this.stagingMemoryQueue = stagingMemoryQueue;
         offloader = new Offloader(inMemoryQueue, stagingMemoryQueue);
         executorService = Executors.newSingleThreadExecutor();
     }
 
-    public boolean produce(Object a, AshesQueue ashesQueue) {
-        boolean b = stagingMemoryQueue.produce(a);
+    public boolean produce(T t, AshesQueue<T> ashesQueue) {
+        boolean b = stagingMemoryQueue.produce(t);
         if (!b) {
             logger.debug("Not enough space in staging memory, going back to persistent queue again");
-            b = ashesQueue.moveFromOffLoaderToOverflowState(a, stagingMemoryQueue);
+            b = ashesQueue.moveFromOffLoaderToOverflowState(t, stagingMemoryQueue);
         } else {
             if (inMemoryQueue.remainingCapacity() > stagingMemoryQueue.inMemoryQueue().size() && inMemoryQueue.isReady()) {
                 logger.debug("Time to move to Normal state, moving..");
@@ -58,11 +62,11 @@ public class OffloaderState implements QueueState {
         return b;
     }
 
-    private synchronized boolean moveToNormal(AshesQueue ashesQueue, boolean b) {
+    private synchronized boolean moveToNormal(AshesQueue<T> ashesQueue, boolean b) {
         stop();
-        Object object = null;
-        while ((object = stagingMemoryQueue.consume()) != null) {
-            inMemoryQueue.produce(object);
+        T t = null;
+        while ((t = stagingMemoryQueue.consume()) != null) {
+            inMemoryQueue.produce(t);
         }
         b = ashesQueue.moveToNormalState();
         return b;
@@ -70,14 +74,14 @@ public class OffloaderState implements QueueState {
 
     private synchronized void moveToNormal() {
         if (inMemoryQueue.remainingCapacity() > stagingMemoryQueue.inMemoryQueue().size() && inMemoryQueue.isReady()) {
-            Object object = null;
-            while ((object = stagingMemoryQueue.consume()) != null) {
-                inMemoryQueue.produce(object);
+            T t= null;
+            while ((t = stagingMemoryQueue.consume()) != null) {
+                inMemoryQueue.produce(t);
             }
         }
     }
 
-    public Object consume() {
+    public T consume() {
         return inMemoryQueue.consume();
     }
 
@@ -95,11 +99,11 @@ public class OffloaderState implements QueueState {
 
 
     class Offloader implements Runnable {
-        private MemoryQueue stagingMemoryQueue;
-        private MemoryQueue inMemoryQueue;
+        private MemoryQueue<T> stagingMemoryQueue;
+        private MemoryQueue<T> inMemoryQueue;
         private boolean halt = false;
 
-        Offloader(MemoryQueue inMemoryQueue, MemoryQueue stagingMemoryQueue) {
+        Offloader(MemoryQueue<T> inMemoryQueue, MemoryQueue<T> stagingMemoryQueue) {
             this.stagingMemoryQueue = stagingMemoryQueue;
             this.inMemoryQueue = inMemoryQueue;
         }
@@ -108,9 +112,9 @@ public class OffloaderState implements QueueState {
             while (true) {
 
                 if (inMemoryQueue.remainingCapacity() > 0 && inMemoryQueue.isReady()) {
-                    Object o = stagingMemoryQueue.consume();
-                    if (null != o) {
-                        inMemoryQueue.produce(o);
+                    T t = stagingMemoryQueue.consume();
+                    if (null != t) {
+                        inMemoryQueue.produce(t);
                     }
                 } else {
                     try {

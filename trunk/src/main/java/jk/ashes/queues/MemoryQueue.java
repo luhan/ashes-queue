@@ -18,6 +18,7 @@ package jk.ashes.queues;
 import jk.ashes.Queue;
 import jk.ashes.util.MemoryMonitoringService;
 
+import java.io.Serializable;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.List;
@@ -29,21 +30,18 @@ import java.util.List;
  * $LastChangedBy$
  * $LastChangedRevision$
  */
-public class MemoryQueue implements Queue {
-    private BlockingQueue inMemoryQueue;
+public class MemoryQueue<T extends Serializable> implements Queue<T> {
+    private BlockingQueue<T> inMemoryQueue;
     private boolean ready = true;
     private int capacity;
 
     public MemoryQueue(int capacity) {
         this.capacity = capacity;
-        this.inMemoryQueue = new LinkedBlockingQueue(); // FIFO queue
+        this.inMemoryQueue = new LinkedBlockingQueue<T>(); // FIFO queue
     }
 
-    public synchronized boolean produce(Object a) {
-        if (inMemoryQueue.size() < capacity) {
-            return inMemoryQueue.offer(a); // return false if full
-        }
-        return false;
+    public synchronized boolean produce(T t) {
+        return inMemoryQueue.size() < capacity && inMemoryQueue.offer(t);
     }
 
     /*
@@ -51,14 +49,14 @@ public class MemoryQueue implements Queue {
     * This when a list of objects is dumbed into file
     *
     * */
-    public synchronized boolean produce(List list) {
-        for (Object obj : list) {
-            produce(obj);
+    public synchronized boolean produce(List<T> list) {
+        for (T t : list) {
+            produce(t);
         }
         return true;
     }
 
-    public Object consume() {
+    public T consume() {
         return inMemoryQueue.poll(); // return null if empty
     }
 
@@ -74,7 +72,7 @@ public class MemoryQueue implements Queue {
         return this.capacity = capacity;
     }
 
-    public BlockingQueue inMemoryQueue() {
+    public BlockingQueue<T> inMemoryQueue() {
         return inMemoryQueue;
     }
 

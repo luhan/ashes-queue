@@ -21,6 +21,7 @@ import jk.ashes.queues.PersistentQueue;
 import jk.ashes.Queue;
 import jk.ashes.QueueState;
 
+import java.io.Serializable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.List;
@@ -37,14 +38,17 @@ import org.slf4j.LoggerFactory;
  * $LastChangedBy$
  * $LastChangedRevision$
  */
-public class OverflowState implements QueueState {
+public class OverflowState<T extends Serializable> implements QueueState<T> {
+
     private final static Logger logger = LoggerFactory.getLogger(OverflowState.class);
-    private MemoryQueue inMemoryQueue;
-    private PersistentQueue persistentQueue;
-    private ExecutorService executorService;
+
+    private MemoryQueue<T> inMemoryQueue;
+    private PersistentQueue<T> persistentQueue;
     private Reloader reloader;
 
-    public OverflowState(MemoryQueue inMemoryQueue, PersistentQueue persistentQueue) {
+    private ExecutorService executorService;
+
+    public OverflowState(MemoryQueue<T> inMemoryQueue, PersistentQueue<T> persistentQueue) {
         this.inMemoryQueue = inMemoryQueue;
         this.persistentQueue = persistentQueue;
         reloader = new Reloader(inMemoryQueue, persistentQueue);
@@ -52,10 +56,10 @@ public class OverflowState implements QueueState {
         persistentQueue.init();
     }
 
-    public synchronized boolean produce(Object a, AshesQueue ashesQueue) {
-        final boolean b = persistentQueue.produce(a);
+    public synchronized boolean produce(T t, AshesQueue<T> ashesQueue) {
+        final boolean b = persistentQueue.produce(t);
         if (!b) {
-            logger.error("Persistent queue is full, very funny, please check " + a);
+            logger.error("Persistent queue is full, very funny, please check " + t);
         } else {
             if (inMemoryQueue.remainingCapacity() > inMemoryQueue.capacity() / 2) { //TODO analyse this later
                 ashesQueue.moveFromOverflowToOffLoaderState();
@@ -67,15 +71,19 @@ public class OverflowState implements QueueState {
 
     /**
      * This is when moving from offloader to overloader
+     * @param t - object to produce
+     * @param stagingMemoryQueue -
+     * @param ashesQueue -
+     * @return - true if success
      */
-    public synchronized boolean produce(Object a, MemoryQueue stagingMemoryQueue, AshesQueue ashesQueue) {
-        List list = new ArrayList();
+    public synchronized boolean produce(T t, MemoryQueue<T> stagingMemoryQueue, AshesQueue<T> ashesQueue) {
+        List<T> list = new ArrayList<T>();
         stagingMemoryQueue.inMemoryQueue().drainTo(list);
         persistentQueue.produce(list);
-        return produce(a, ashesQueue);
+        return produce(t, ashesQueue);
     }
 
-    public Object consume() {
+    public T consume() {
         return inMemoryQueue.consume();
     }
 
@@ -101,22 +109,22 @@ public class OverflowState implements QueueState {
     }
     
     class Reloader implements Runnable {
-        private Queue persistenQueue;
-        private MemoryQueue inMemoryQueue;
+        private Queue<T> persistenQueue;
+        private MemoryQueue<T> inMemoryQueue;
         private Boolean halt = false;
 
-        Reloader(MemoryQueue inMemoryQueue, Queue persistenQueue) {
+        Reloader(MemoryQueue<T> inMemoryQueue, Queue<T> persistenQueue) {
             this.persistenQueue = persistenQueue;
             this.inMemoryQueue = inMemoryQueue;
         }
 
         public void run() {
             while (true) {
-                Object o = null;                
+                T t = null;
                 if (inMemoryQueue.remainingCapacity() > 0) {
-                    o = persistenQueue.consume();
-                    if (null != o) {
-                        inMemoryQueue.produce(o);
+                    t = persistenQueue.consume();
+                    if (null != t) {
+                        inMemoryQueue.produce(t);
                     }
                 } else {
                     try {

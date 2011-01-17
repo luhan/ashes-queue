@@ -46,7 +46,7 @@ import jk.ashes.PersistentMessageListener;
  * $LastChangedBy$
  * $LastChangedRevision$
  */
-public class PersistentQueue implements Queue {
+public class PersistentQueue<T extends Serializable> implements Queue<T> {
     private final static Logger logger = LoggerFactory.getLogger(PersistentQueue.class);
 
     protected static int WRITE_PAGE_SIZE = 1024 * 1024; // 1 MB Page Size
@@ -160,9 +160,9 @@ public class PersistentQueue implements Queue {
     /**
      * This queue has to be synchronised with consume, otherwise it gets corrupted
      */
-    public synchronized boolean produce(Object o) {
+    public synchronized boolean produce(T t) {
         try {
-            byte[] oBytes = getBytes(o);
+            byte[] oBytes = getBytes(t);
             int length = oBytes.length;
             //prepare the header
             header.clear();
@@ -185,14 +185,14 @@ public class PersistentQueue implements Queue {
             writeMbb.put(header); //write header
             writeMbb.put(data); //write data
             if (null != persistentMessageListener) { //notify listener
-                persistentMessageListener.onMessagePersistent(o, true);
+                persistentMessageListener.onMessagePersistent(t, true);
             }
             return true;
         } catch (Throwable e) {
             logger.error("Issue in dumping the object into persistent " + e);
-            logger.error("The object missed is :" + o);
+            logger.error("The object missed is :" + t);
             if (null != persistentMessageListener) {
-                persistentMessageListener.onMessagePersistent(o, true);
+                persistentMessageListener.onMessagePersistent(t, true);
             }
             return false;
         }
@@ -203,15 +203,15 @@ public class PersistentQueue implements Queue {
     * This when a list of objects is dumbed into file
     *
     * */
-    public synchronized boolean produce(List list) {
-        for (Object obj : list) {
-            produce(obj);
+    public synchronized boolean produce(List<T> list) {
+        for (T t: list) {
+            produce(t);
         }
         return true;
     }
 
 
-    public synchronized Object consume() {
+    public synchronized T consume() {
         try {
             int currentPosition = readMbb.position();
             if (readMbb.remaining() < packetCapacity) {
@@ -252,29 +252,34 @@ public class PersistentQueue implements Queue {
             oos.flush();
             return bos.toByteArray();
         } finally {
-            try {
-                oos.close();
-            } catch (Throwable e) {/*Do nothing*/}
-            try {
-                bos.close();
-            } catch (Throwable e) {/*Do nothing*/}
+            closeResource(bos, oos);
         }
     }
 
-    public static Object toObject(byte[] bytes) throws IOException, ClassNotFoundException {
+    public static <T> T toObject(byte[] bytes) throws IOException, ClassNotFoundException {
         ByteArrayInputStream bis = null;
         ObjectInputStream ois = null;
         try {
             bis = new ByteArrayInputStream(bytes);
             ois = new ObjectInputStream(bis);
-            return ois.readObject();
+            return (T) ois.readObject();
         } finally {
-            try {
-                ois.close();
-            } catch (Throwable e) {/*Do Nothing*/}
-            try {
-                bis.close();
-            } catch (Throwable e) {/*Do Nothing*/}
+            closeResource(bis, ois);
+        }
+    }
+
+    private static void closeResource(Closeable a, Closeable b) {
+        closeResource(a);
+        closeResource(b);
+    }
+
+    public static void closeResource(Closeable c) {
+        try {
+            if (c != null) {
+                c.close();
+            }
+        } catch (Throwable ignore) {
+            /* Do Nothing */
         }
     }
 

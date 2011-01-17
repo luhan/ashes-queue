@@ -15,6 +15,7 @@
 */
 package jk.ashes;
 
+import java.io.Serializable;
 import java.util.List;
 
 /**
@@ -22,12 +23,12 @@ import java.util.List;
  * $LastChangedBy$
  * $LastChangedRevision$
  */
-public interface Queue {
-    boolean produce(Object o);
+public interface Queue<T extends Serializable> {
+    boolean produce(T t);
     
-    boolean produce(List list);
+    boolean produce(List<T> list);
 
-    Object consume();
+    T consume();
 
     int remainingCapacity();
 
