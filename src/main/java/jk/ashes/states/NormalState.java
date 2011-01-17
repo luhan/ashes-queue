@@ -19,6 +19,8 @@ import jk.ashes.queues.MemoryQueue;
 import jk.ashes.queues.AshesQueue;
 import jk.ashes.QueueState;
 
+import java.io.Serializable;
+
 /**
  * This is the normal state where message comes to inmemory and passed to consumer.
  * incase the inmemory is full, it moves to overflow state
@@ -26,22 +28,23 @@ import jk.ashes.QueueState;
  * $LastChangedBy$
  * $LastChangedRevision$
  */
-public class NormalState implements QueueState{
-    private MemoryQueue inMemoryQueue;
+public class NormalState<T extends Serializable> implements QueueState<T> {
 
-    public NormalState(MemoryQueue inMemoryQueue) {
+    private MemoryQueue<T> inMemoryQueue;
+
+    public NormalState(MemoryQueue<T> inMemoryQueue) {
         this.inMemoryQueue = inMemoryQueue;
     }
 
-    public boolean produce(Object a, AshesQueue ashesQueue) {
-        boolean b = inMemoryQueue.produce(a);
+    public boolean produce(T t, AshesQueue<T> ashesQueue) {
+        boolean b = inMemoryQueue.produce(t);
         if (!b) {
-            b = ashesQueue.moveFromNormalToOverflowState(a);
+            b = ashesQueue.moveFromNormalToOverflowState(t);
         }
         return b;
     }
 
-    public Object consume() {
+    public T consume() {
         return inMemoryQueue.consume();
     }
 

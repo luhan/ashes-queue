@@ -24,6 +24,7 @@ import jk.ashes.PersistentMessageListener;
 import jk.ashes.util.MemoryMonitoringService;
 import jk.ashes.util.Range;
 
+import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
@@ -37,14 +38,14 @@ import org.slf4j.Logger;
  * $LastChangedBy$
  * $LastChangedRevision$
  */
-public class AshesQueue implements Queue {
+public class AshesQueue<T extends Serializable> implements Queue<T> {
     private final static Logger logger = LoggerFactory.getLogger(AshesQueue.class);
 
-    private QueueState currentQueue;
+    private QueueState<T> currentQueue;
 
-    private NormalState normalState;
-    private OverflowState overflowState;
-    private OffloaderState offloaderState;
+    private NormalState<T> normalState;
+    private OverflowState<T> overflowState;
+    private OffloaderState<T> offloaderState;
 
     private MemoryQueue inMemoryQueue;
 
@@ -70,9 +71,7 @@ public class AshesQueue implements Queue {
         service.start();
         Runtime.getRuntime().addShutdownHook(new Thread() {
             public void run() {
-                if (service != null) {
-                    service.stop();
-                }
+                service.stop();
             }
         });
     }
@@ -85,39 +84,39 @@ public class AshesQueue implements Queue {
         }
     }
 
-    public boolean produce(Object o) {
-        return currentQueue.produce(o, this);
+    public boolean produce(T t) {
+        return currentQueue.produce(t, this);
     }
 
-    public Object consume() {
+    public T consume() {
         return currentQueue.consume();
     }
 
-    public boolean produce(List list) {
+    public boolean produce(List<T> list) {
         boolean b;
         boolean success = true;
-        for (Object o : list) {
-            b = produce(o);
+        for (T t : list) {
+            b = produce(t);
             if (!b) {
-                logger.error("Message Failed " + o);
+                logger.error("Message Failed " + t);
                 success = false;
             }
         }
         return success;
     }
 
-    public boolean moveFromNormalToOverflowState(Object a) {
+    public boolean moveFromNormalToOverflowState(T t) {
         logger.debug("Moving to overflow state from normal state ...");
         overflowState.start();
         currentQueue = overflowState;
-        return null == a || currentQueue.produce(a, this);
+        return null == t || currentQueue.produce(t, this);
     }
 
-    public boolean moveFromOffLoaderToOverflowState(Object a, MemoryQueue stagingMemoryQueue) {
+    public boolean moveFromOffLoaderToOverflowState(T t, MemoryQueue<T> stagingMemoryQueue) {
         logger.debug("Moving to overflow state from Offloader state ...");
         overflowState.start();
         currentQueue = overflowState;
-        return overflowState.produce(a, stagingMemoryQueue, this);
+        return overflowState.produce(t, stagingMemoryQueue, this);
     }
 
     public void moveFromOverflowToOffLoaderState() {

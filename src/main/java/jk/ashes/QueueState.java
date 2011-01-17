@@ -17,13 +17,16 @@ package jk.ashes;
 
 import jk.ashes.queues.AshesQueue;
 
+import java.io.Serializable;
+
 /**
  * $LastChangedDate$
  * $LastChangedBy$
  * $LastChangedRevision$
  */
-public interface QueueState {
-    boolean produce(Object a, AshesQueue ashesQueue);
+public interface QueueState<T extends Serializable> {
 
-    Object consume();
+    boolean produce(T t, AshesQueue<T> ashesQueue);
+
+    T consume();
 }
