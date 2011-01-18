@@ -99,7 +99,7 @@ public class OffloaderState<T extends Serializable> implements QueueState<T> {
 
     public void stop() {
         offloader.halt();
-        //todo wait till offloader thread finished
+        executorService.shutdown();
     }
 
     public void shutdown() {
@@ -128,7 +128,7 @@ public class OffloaderState<T extends Serializable> implements QueueState<T> {
                     }
                 } else {
                     try {
-                        Thread.sleep(10);
+                        Thread.sleep(5);
                     } catch (InterruptedException e) {
                         logger.error("Interrupted exception : offloader exiting");
                         return;

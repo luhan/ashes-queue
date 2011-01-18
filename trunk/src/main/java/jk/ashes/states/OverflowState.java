@@ -84,7 +84,11 @@ public class OverflowState<T extends Serializable> implements QueueState<T> {
     }
 
     public T consume() {
-        return inMemoryQueue.consume();
+        T consume = inMemoryQueue.consume();
+        if (consume == null) {
+            reloader.awake();
+        }
+        return consume;
     }
 
     public int remainingCapacity() {
@@ -154,6 +158,12 @@ public class OverflowState<T extends Serializable> implements QueueState<T> {
 
         public void resume() {
             halt = false;
+        }
+
+        public void awake() {
+            synchronized (this) {
+                this.notify();
+            }
         }
     }
 }
