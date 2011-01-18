@@ -39,24 +39,26 @@ import org.slf4j.Logger;
  * $LastChangedRevision$
  */
 public class AshesQueue<T extends Serializable> implements Queue<T> {
+
     private final static Logger logger = LoggerFactory.getLogger(AshesQueue.class);
 
-    private QueueState<T> currentQueue;
+    private QueueState<T> currentState;
 
     private NormalState<T> normalState;
     private OverflowState<T> overflowState;
     private OffloaderState<T> offloaderState;
 
-    private MemoryQueue inMemoryQueue;
+    private MemoryQueue<T> inMemoryQueue;
 
-    public AshesQueue(int mainMemorySize, int stagingMemorySize, String fileName, PersistentMessageListener listener) {
-        inMemoryQueue = new MemoryQueue(mainMemorySize);
-        MemoryQueue inMemoryStatgingQueue = new MemoryQueue(stagingMemorySize);
-        PersistentQueue persistentQueue = new PersistentQueue(fileName, listener);
+    public AshesQueue(int mainMemorySize, int stagingMemorySize, String fileName, PersistentMessageListener<T> listener) {
 
-        normalState = new NormalState(inMemoryQueue);
-        overflowState = new OverflowState(inMemoryQueue, persistentQueue);
-        offloaderState = new OffloaderState(inMemoryQueue, inMemoryStatgingQueue);
+        inMemoryQueue = new MemoryQueue<T>(mainMemorySize);
+        MemoryQueue<T> inMemoryStagingQueue = new MemoryQueue<T>(stagingMemorySize);
+        PersistentQueue<T> persistentQueue = new PersistentQueue<T>(fileName, listener);
+
+        normalState = new NormalState<T>(inMemoryQueue);
+        overflowState = new OverflowState<T>(inMemoryQueue, persistentQueue);
+        offloaderState = new OffloaderState<T>(inMemoryQueue, inMemoryStagingQueue, persistentQueue);
 
         initialiseState(persistentQueue);
     }
@@ -80,16 +82,16 @@ public class AshesQueue<T extends Serializable> implements Queue<T> {
         if (persistentQueue.isBacklogAvailable()) {
             moveFromNormalToOverflowState(null); // the file contains messages already, clear them first
         } else {
-            currentQueue = normalState;    // move to normal
+            currentState = normalState;    // move to normal
         }
     }
 
     public boolean produce(T t) {
-        return currentQueue.produce(t, this);
+        return currentState.produce(t, this);
     }
 
     public T consume() {
-        return currentQueue.consume();
+        return currentState.consume();
     }
 
     public boolean produce(List<T> list) {
@@ -108,26 +110,26 @@ public class AshesQueue<T extends Serializable> implements Queue<T> {
     public boolean moveFromNormalToOverflowState(T t) {
         logger.debug("Moving to overflow state from normal state ...");
         overflowState.start();
-        currentQueue = overflowState;
-        return null == t || currentQueue.produce(t, this);
+        currentState = overflowState;
+        return null == t || currentState.produce(t, this);
     }
 
     public boolean moveFromOffLoaderToOverflowState(T t, MemoryQueue<T> stagingMemoryQueue) {
         logger.debug("Moving to overflow state from Offloader state ...");
         overflowState.start();
-        currentQueue = overflowState;
+        currentState = overflowState;
         return overflowState.produce(t, stagingMemoryQueue, this);
     }
 
     public void moveFromOverflowToOffLoaderState() {
         logger.debug("Moving to offloader state from over from over flow state ...");
         offloaderState.start();
-        currentQueue = offloaderState;
+        currentState = offloaderState;
     }
 
     public boolean moveToNormalState() {
         logger.debug("Moving to normal state...");
-        currentQueue = normalState;
+        currentState = normalState;
         return true;
     }
 
@@ -137,6 +139,10 @@ public class AshesQueue<T extends Serializable> implements Queue<T> {
 
     public int capacity() {
         return inMemoryQueue.capacity();
+    }
+
+    public void shutdown() {
+        offloaderState.shutdown();
     }
 
     public boolean isEmpty() {

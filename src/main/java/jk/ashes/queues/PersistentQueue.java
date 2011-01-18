@@ -47,30 +47,36 @@ import jk.ashes.PersistentMessageListener;
  * $LastChangedRevision$
  */
 public class PersistentQueue<T extends Serializable> implements Queue<T> {
+
     private final static Logger logger = LoggerFactory.getLogger(PersistentQueue.class);
 
     protected static int WRITE_PAGE_SIZE = 1024 * 1024; // 1 MB Page Size
     protected static int READ_PAGE_SIZE = 1024 * 1024; // 1 MB Page Size
 
     private String fileName = "store.dat"; // the default name of the persistent file
-    private RandomAccessFile file;//random accessfile
-    private FileChannel channel; //channel returned from random accessfile
+
+    private RandomAccessFile file;//random access file
+
+    private FileChannel channel; //channel returned from random access file
+
     private MappedByteBuffer readMbb; // buffer used to read
     private MappedByteBuffer writeMbb; // buffer used to wirte
 
     private boolean backlogAvailable = false; // If the persistent file has backlog already
 
-    private PersistentMessageListener persistentMessageListener; //Listener to be used to notify when a message is persisted
+    private PersistentMessageListener<T> persistentMessageListener; //Listener to be used to notify when a message is persisted
 
     final private ByteBuffer header = ByteBuffer.allocateDirect(5);   //1 byte for the status of the message, 4 bytes length of the payload
     final private ByteBuffer data = ByteBuffer.allocateDirect(1024); //1KB Message Packet
+
     final private int packetCapacity = header.capacity() + data.capacity();
+
     final private int headerLength = 5;
 
     private int fileReadPosition = 0;  //absolute file read position
     private int fileWritePosition = 0; //absolute file write position
 
-    public PersistentQueue(String fileName, PersistentMessageListener persistentMessageListener) {
+    public PersistentQueue(String fileName, PersistentMessageListener<T> persistentMessageListener) {
         this.fileName = fileName;
         this.persistentMessageListener = persistentMessageListener;
     }
@@ -79,7 +85,7 @@ public class PersistentQueue<T extends Serializable> implements Queue<T> {
         this(fileName, null);
     }
 
-    public PersistentQueue(PersistentMessageListener persistentMessageListener) {
+    public PersistentQueue(PersistentMessageListener<T> persistentMessageListener) {
         this("store.dat", persistentMessageListener);
     }
 

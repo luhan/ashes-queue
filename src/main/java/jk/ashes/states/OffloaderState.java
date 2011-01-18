@@ -20,9 +20,11 @@ import jk.ashes.queues.AshesQueue;
 import jk.ashes.QueueState;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import jk.ashes.queues.PersistentQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,11 +39,13 @@ public class OffloaderState<T extends Serializable> implements QueueState<T> {
 
     private MemoryQueue<T> inMemoryQueue;
     private MemoryQueue<T> stagingMemoryQueue;
-    private Offloader offloader;
+    private PersistentQueue<T> persistentQueue;
 
+    private Offloader offloader;
     private ExecutorService executorService;
 
-    public OffloaderState(MemoryQueue<T> inMemoryQueue, MemoryQueue<T> stagingMemoryQueue) {
+    public OffloaderState(MemoryQueue<T> inMemoryQueue, MemoryQueue<T> stagingMemoryQueue, PersistentQueue<T> persistentQueue) {
+        this.persistentQueue = persistentQueue;
         this.inMemoryQueue = inMemoryQueue;
         this.stagingMemoryQueue = stagingMemoryQueue;
         offloader = new Offloader(inMemoryQueue, stagingMemoryQueue);
@@ -95,8 +99,14 @@ public class OffloaderState<T extends Serializable> implements QueueState<T> {
 
     public void stop() {
         offloader.halt();
+        //todo wait till offloader thread finished
     }
 
+    public void shutdown() {
+        stop();
+        final ArrayList<T> list = new ArrayList<T>();
+        persistentQueue.produce(list);
+    }
 
     class Offloader implements Runnable {
         private MemoryQueue<T> stagingMemoryQueue;
@@ -120,7 +130,7 @@ public class OffloaderState<T extends Serializable> implements QueueState<T> {
                     try {
                         Thread.sleep(10);
                     } catch (InterruptedException e) {
-                        logger.error("Interupted exception : offloader exiting");
+                        logger.error("Interrupted exception : offloader exiting");
                         return;
                     }
                 }
