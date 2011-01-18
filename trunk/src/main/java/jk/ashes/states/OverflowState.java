@@ -59,7 +59,7 @@ public class OverflowState<T extends Serializable> implements QueueState<T> {
     public synchronized boolean produce(T t, AshesQueue<T> ashesQueue) {
         final boolean b = persistentQueue.produce(t);
         if (!b) {
-            logger.error("Persistent queue is full, very funny, please check " + t);
+            logger.error("Persistent queue is full or in abnormal state, very funny, please check " + t);
         } else {
             if (inMemoryQueue.remainingCapacity() > inMemoryQueue.capacity() / 2) { //TODO analyse this later
                 ashesQueue.moveFromOverflowToOffLoaderState();

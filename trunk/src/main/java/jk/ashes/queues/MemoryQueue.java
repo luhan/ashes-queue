@@ -41,7 +41,11 @@ public class MemoryQueue<T extends Serializable> implements Queue<T> {
     }
 
     public synchronized boolean produce(T t) {
-        return inMemoryQueue.size() < capacity && inMemoryQueue.offer(t);
+        return isSpaceAvailable() && inMemoryQueue.offer(t);
+    }
+
+    private boolean isSpaceAvailable() {
+        return inMemoryQueue.size() < capacity;
     }
 
     /*
@@ -53,7 +57,7 @@ public class MemoryQueue<T extends Serializable> implements Queue<T> {
         for (T t : list) {
             produce(t);
         }
-        return true;
+        return true; //todo what if produce return false?
     }
 
     public T consume() {

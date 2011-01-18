@@ -11,16 +11,18 @@
  */
 package jk.ashes;
 
+import java.io.Serializable;
+
 /**
  * $LastChangedDate$
  * $LastChangedBy$
  * $LastChangedRevision$
  */
-public interface PersistentMessageListener {
+public interface PersistentMessageListener<T extends Serializable> {
 
     /**
-     * @param obj is persisted or not
+     * @param t is persisted or not
      * @param state of the persistent whether its success or not
      * */
-    public void onMessagePersistent(Object obj, boolean state);
+    public void onMessagePersistent(T t, boolean state);
 }
